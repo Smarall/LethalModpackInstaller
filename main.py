@@ -4,6 +4,9 @@ import sys
 import shutil
 import zipfile
 from configparser import ConfigParser
+import numpy as np
+from datetime import datetime
+
 
 config = ConfigParser()
 
@@ -13,25 +16,29 @@ def resource_path(pRelativePath):
     return os.path.join(base_path, pRelativePath)
 
 
+def timestampPrint(pContent):
+    print(str(datetime.now().strftime('%H:%M:%S'))+': '+pContent)
+
+
 def deleteFolder(pPath):
     if os.path.exists(pPath):
         shutil.rmtree(pPath)
-        print('Deleted ' + pPath)
+        timestampPrint('Deleted ' + pPath)
     else:
-        print('There is no ' + pPath)
+        timestampPrint('There is no ' + pPath)
 
 
 def unzipOverwrite(pZip, pDestination):
     if os.path.isfile(pZip):
         if os.path.exists(pDestination):
             zipfile.ZipFile(pZip, 'r').extractall(pDestination)
-            updateConfig('paths', 'installation', pDestination)
-            updateConfig('paths', 'previousModpack', pZip)
-            print('Finished installing/updating! :D\n')
+            updateConfig('paths', 'installation', values['-gameDir-'])
+            updateConfig('paths', 'previousModpack', values['-modZip-'])
+            timestampPrint('==>Finished installing/updating! :D')
         else:
-            print('Directory does not exist: '+pDestination)
+            timestampPrint('Directory does not exist: '+pDestination)
     else:
-        print('File does not exist: '+pZip)
+        timestampPrint('File does not exist: '+pZip)
 
 
 def updateConfig(pCategory, pKey, pContent):
@@ -47,26 +54,67 @@ def readConfig(pCategory, pKey):
     return config.get(pCategory, pKey)
 
 
+def searchFiles(pDirectory, pExtension):
+    foundFiles = []
+    for file in os.listdir(pDirectory):
+        if file.endswith(pExtension):
+            foundFiles.append(file)
+    return foundFiles
+
+
+def modlist2Table(pSource, pTable):
+    tmp = searchFiles(pSource + '/BepInEx/plugins/', '.dll')
+    pModlist = (np.array(tmp).reshape(len(tmp), -1).tolist())
+    window[pTable].update(values=pModlist)
+
+
 # ====PSG===============================================================================================================
 sGui.theme('Reddit')
 
-layout = [[sGui.Text('LethalCompany directory', size=(20, 1)), sGui.InputText(default_text=readConfig('paths', 'installation'), key='-gameDir-'), sGui.FolderBrowse()],
-          [sGui.Text('Modpack (.zip)', size=(20, 1)), sGui.InputText(default_text=readConfig('paths', 'previousModpack'), key='-modZip-'), sGui.FileBrowse(file_types=[('Modpack', '*.zip')])],
-          [sGui.Checkbox('delete plugins', key='-delPlugins-'), sGui.Checkbox('delete configs', key='-delConfigs-')],
-          [sGui.Button('Install / Update', key='-install-')],
-          [sGui.Output(size=(75, 5))]]
+layout = [[sGui.Text('LethalCompany directory', size=(20, 1)),
+           sGui.InputText(default_text=readConfig('paths', 'installation'), key='-gameDir-'),
+           sGui.FolderBrowse()],
 
-window = sGui.Window('LethalModpackInstaller v1.0   (Smarall)', layout, icon=resource_path('lmi.ico'))
+
+          [sGui.Text('Modpack (.zip)', size=(20, 1)),
+           sGui.InputText(default_text=readConfig('paths', 'previousModpack'), key='-modZip-'),
+           sGui.FileBrowse(file_types=[('Modpack', '*.zip')])],
+
+          [sGui.Checkbox('delete plugins', key='-delPlugins-'),
+           sGui.Checkbox('delete configs', key='-delConfigs-')],
+
+          [sGui.Button('Install / Update', key='-install-')],
+
+          [sGui.Output(size=(75, 10))]]
+
+modlistLayout = [[sGui.Button('Refresh Modlist', expand_x=True, key='-reloadModlist-')],
+
+                 [sGui.Table(headings=['Installed Mods'], values=[], hide_vertical_scroll=True, size=(0, 15), justification='left', key='-availableMods-'),
+                  sGui.Table(headings=['Selected Mods'], values=[], hide_vertical_scroll=True, size=(0, 15), justification='left', key='-selectedMods-')]]
+
+window = sGui.Window('LethalModpackInstaller v1.1   (Smarall)',
+                     [[sGui.Column(layout), sGui.VerticalSeparator(), sGui.Column(modlistLayout)]],
+                     icon=resource_path('lmi.ico'))
+
 
 while True:
     event, values = window.read()
+
     if event == sGui.WIN_CLOSED:
         break
+
+    if event == '-reloadModlist-':
+        modlist2Table(values['-gameDir-'], '-availableMods-')
+        zipfile.ZipFile(values['-modZip-'], 'r').extractall(values['-modZip-'].removesuffix('.zip'))
+        modlist2Table(values['-modZip-'].removesuffix('.zip'), '-selectedMods-')
+        shutil.rmtree(values['-modZip-'].removesuffix('.zip'))
+
     if event == '-install-':
         if values['-delPlugins-']:
             deleteFolder(values['-gameDir-'] + '/BepInEx/plugins')
         if values['-delConfigs-']:
             deleteFolder(values['-gameDir-'] + '/BepInEx/config')
         unzipOverwrite(values['-modZip-'], values['-gameDir-'])
+
 
 window.close()

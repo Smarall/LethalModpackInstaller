@@ -1,2 +1,8 @@
+====v1.1====
+- added a config file
+- lmi will now remember the last used paths for the game installation directory and modpack
+- the console output now has timestamps
+- added tables listing the currently installed mods and the mods in the currently selected modpack
+
 ====v1.0====
 - first release
