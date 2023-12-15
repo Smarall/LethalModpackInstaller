@@ -89,7 +89,7 @@ layout = [[sGui.Text('LethalCompany directory', size=(20, 1)),
 
 modlistLayout = [[sGui.Button('Refresh Modlist', expand_x=True, key='-reloadModlist-')],
 
-                 [sGui.Table(headings=['Installed Mods'], values=[], hide_vertical_scroll=True, size=(0, 15), justification='left', key='-availableMods-'),
+                 [sGui.Table(headings=['Installed Mods'], values=[], hide_vertical_scroll=True, size=(0, 15), justification='left', key='-installedMods-'),
                   sGui.Table(headings=['Selected Mods'], values=[], hide_vertical_scroll=True, size=(0, 15), justification='left', key='-selectedMods-')]]
 
 window = sGui.Window('LethalModpackInstaller v1.1   (Smarall)',
@@ -104,10 +104,16 @@ while True:
         break
 
     if event == '-reloadModlist-':
-        modlist2Table(values['-gameDir-'], '-availableMods-')
-        zipfile.ZipFile(values['-modZip-'], 'r').extractall(values['-modZip-'].removesuffix('.zip'))
-        modlist2Table(values['-modZip-'].removesuffix('.zip'), '-selectedMods-')
-        shutil.rmtree(values['-modZip-'].removesuffix('.zip'))
+        if os.path.exists(values['-gameDir-']):
+            modlist2Table(values['-gameDir-'], '-installedMods-')
+        else:
+            window['-installedMods-'].update(values=[])
+        if os.path.exists(values['-modZip-']):
+            zipfile.ZipFile(values['-modZip-'], 'r').extractall(values['-modZip-'].removesuffix('.zip'))
+            modlist2Table(values['-modZip-'].removesuffix('.zip'), '-selectedMods-')
+            shutil.rmtree(values['-modZip-'].removesuffix('.zip'))
+        else:
+            window['-selectedMods-'].update(values=[])
 
     if event == '-install-':
         if values['-delPlugins-']:
